@@ -65,6 +65,15 @@ class RecursiveDenormalizedHasManyTest < IdentityCache::TestCase
     end
   end
 
+  def test_records_saved_to_cache_should_have_all_association_caches_cleared
+    Record.any_instance.expects(:clear_association_cache).once
+    AssociatedRecord.any_instance.expects(:clear_association_cache).times(2)
+    DeeplyAssociatedRecord.any_instance.expects(:clear_association_cache).times(2)
+    
+    record_from_miss = Record.fetch(@record.id)
+    
+  end
+
   def test_saving_child_record_should_expire_parent_record
     IdentityCache.cache.expects(:delete).with(@record.primary_cache_index_key)
     IdentityCache.cache.expects(:delete).with(@associated_record.primary_cache_index_key)
