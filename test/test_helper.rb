@@ -18,6 +18,8 @@ end
 DatabaseConnection.setup
 ActiveSupport::Cache::Store.instrument = true
 
+IdentityCache.cache_backend = IdentityCache::MemcachedAdapter.new("localhost:#{$memcached_port}")
+
 # This patches AR::MemcacheStore to notify AS::Notifications upon read_multis like the rest of rails does
 class ActiveSupport::Cache::MemCacheStore
   def read_multi_with_instrumentation(*args, &block)

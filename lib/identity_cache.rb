@@ -10,6 +10,7 @@ require 'identity_cache/configuration_dsl'
 require 'identity_cache/parent_model_expiration'
 require 'identity_cache/query_api'
 require "identity_cache/cache_hash"
+require "identity_cache/cache_entry"
 require "identity_cache/memcached_adapter"
 
 module IdentityCache
@@ -38,15 +39,7 @@ module IdentityCache
       base.send(:include, IdentityCache::QueryAPI)
     end
 
-    # Sets the cache adaptor IdentityCache will be using
-    #
-    # == Parameters
-    #
-    # +cache_adaptor+ - A ActiveSupport::Cache::Store
-    #
-    def cache_backend=(cache_adaptor)
-      cache.cache_backend = cache_adaptor
-    end
+    attr_accessor :cache_backend
 
     def cache
       @cache ||= MemoizedCacheProxy.new
@@ -68,20 +61,13 @@ module IdentityCache
     # +key+ A cache key string
     #
     def fetch(key, &block)
-      result = cache.read(key) if should_cache?
+      return yield unless should_cache?
 
-      if result.nil?
-        if block_given?
-          result = yield
-          result = map_cached_nil_for(result)
-
-          if should_cache?
-            cache.write(key, result)
-          end
-        end
+      unless (entry = CacheEntry.find(key)).exists?
+        entry.value = yield
+        entry.save
       end
-
-      unmap_cached_nil_for(result)
+      entry.value
     end
 
     def map_cached_nil_for(value)

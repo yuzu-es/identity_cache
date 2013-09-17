@@ -5,6 +5,8 @@ class FetchTest < IdentityCache::TestCase
 
   def setup
     super
+    @cache = IdentityCache.cache_backend
+
     Record.cache_index :title, :unique => true
     Record.cache_index :id, :title, :unique => true
 
@@ -18,7 +20,7 @@ class FetchTest < IdentityCache::TestCase
   end
 
   def test_fetch_cache_hit
-    IdentityCache.cache.expects(:read).with(@blob_key).returns(@cached_value)
+    @cache.expects(:get).with(@blob_key).returns([@cached_value, 0])
 
     assert_equal @record, Record.fetch(1)
   end
@@ -28,26 +30,26 @@ class FetchTest < IdentityCache::TestCase
     Record.namespace = 'test_namespace'
 
     new_blob_key = "test_namespace:#{@blob_key}"
-    IdentityCache.cache.expects(:read).with(new_blob_key).returns(@cached_value)
+    @cache.expects(:get).with(new_blob_key).returns([@cached_value, 0])
 
     assert_equal @record, Record.fetch(1)
   end
 
   def test_exists_with_identity_cache_when_cache_hit
-    IdentityCache.cache.expects(:read).with(@blob_key).returns(@cached_value)
+    @cache.expects(:get).with(@blob_key).returns([@cached_value, 0])
 
     assert Record.exists_with_identity_cache?(1)
   end
 
   def test_exists_with_identity_cache_when_cache_miss_and_in_db
-    IdentityCache.cache.expects(:read).with(@blob_key).returns(nil)
+    @cache.expects(:get).with(@blob_key).returns([nil, nil])
     Record.expects(:find_by_id).with(1, :include => []).returns(@record)
 
     assert Record.exists_with_identity_cache?(1)
   end
 
   def test_exists_with_identity_cache_when_cache_miss_and_not_in_db
-    IdentityCache.cache.expects(:read).with(@blob_key).returns(nil)
+    @cache.expects(:get).with(@blob_key).returns([nil, nil])
     Record.expects(:find_by_id).with(1, :include => []).returns(nil)
 
     assert !Record.exists_with_identity_cache?(1)
@@ -56,22 +58,22 @@ class FetchTest < IdentityCache::TestCase
   def test_fetch_miss
     Record.expects(:find_by_id).with(1, :include => []).returns(@record)
 
-    IdentityCache.cache.expects(:read).with(@blob_key).returns(nil)
-    IdentityCache.cache.expects(:write).with(@blob_key, @cached_value)
+    @cache.expects(:get).with(@blob_key).returns([nil, nil])
+    @cache.expects(:add).with(@blob_key, @cached_value)
 
     assert_equal @record, Record.fetch(1)
   end
 
   def test_fetch_by_id_not_found_should_return_nil
     nonexistent_record_id = 10
-    IdentityCache.cache.expects(:write).with(@blob_key + '0', IdentityCache::CACHED_NIL)
+    @cache.expects(:add).with(@blob_key + '0', IdentityCache::CACHED_NIL)
 
     assert_equal nil, Record.fetch_by_id(nonexistent_record_id)
   end
 
   def test_fetch_not_found_should_raise
     nonexistent_record_id = 10
-    IdentityCache.cache.expects(:write).with(@blob_key + '0', IdentityCache::CACHED_NIL)
+    @cache.expects(:add).with(@blob_key + '0', IdentityCache::CACHED_NIL)
 
     assert_raises(ActiveRecord::RecordNotFound) { Record.fetch(nonexistent_record_id) }
   end
@@ -80,40 +82,41 @@ class FetchTest < IdentityCache::TestCase
     key = @record.primary_cache_index_key
 
     assert_equal nil, Record.fetch_by_id(@record.id)
-    assert_equal IdentityCache::CACHED_NIL, IdentityCache.cache.read(key)
+    assert_equal IdentityCache::CACHED_NIL, @cache.get(key)[0]
 
     @record.save!
-    assert_nil IdentityCache.cache.read(key)
+    assert_nil @cache.get(key)
   end
 
   def test_fetch_by_title_hit
     # Read record with title bob
-    IdentityCache.cache.expects(:read).with(@index_key).returns(nil)
+    @cache.expects(:get).with(@index_key).returns([nil, nil])
 
     # - not found, use sql, SELECT id FROM records WHERE title = '...' LIMIT 1"
     Record.connection.expects(:select_value).returns(1)
 
     # cache sql result
-    IdentityCache.cache.expects(:write).with(@index_key, 1)
+    @cache.expects(:add).with(@index_key, 1)
 
     # got id, do memcache lookup on that, hit -> done
-    IdentityCache.cache.expects(:read).with(@blob_key).returns(@cached_value)
+    @cache.expects(:get).with(@blob_key).returns([@cached_value, 0])
 
     assert_equal @record, Record.fetch_by_title('bob')
   end
 
   def test_fetch_by_title_cache_namespace
     Record.send(:include, SwitchNamespace)
-    IdentityCache.cache.expects(:read).with("ns:#{@index_key}").returns(1)
-    IdentityCache.cache.expects(:read).with("ns:#{@blob_key}").returns(@cached_value)
+    @cache.expects(:get).with("ns:#{@index_key}").returns([1, 0])
+    @cache.expects(:get).with("ns:#{@blob_key}").returns([@cached_value, 0])
 
     assert_equal @record, Record.fetch_by_title('bob')
   end
 
   def test_fetch_by_title_stores_idcnil
     Record.connection.expects(:select_value).once.returns(nil)
-    Rails.cache.expects(:write).with(@index_key, IdentityCache::CACHED_NIL)
-    Rails.cache.expects(:read).with(@index_key).times(3).returns(nil, IdentityCache::CACHED_NIL, IdentityCache::CACHED_NIL)
+    @cache.expects(:add).with(@index_key, IdentityCache::CACHED_NIL)
+    @cache.expects(:get).with(@index_key).times(3).returns([nil, nil], [IdentityCache::CACHED_NIL, 0], [IdentityCache::CACHED_NIL, 0])
+
     assert_equal nil, Record.fetch_by_title('bob') # select_value => nil
 
     assert_equal nil, Record.fetch_by_title('bob') # returns cached nil

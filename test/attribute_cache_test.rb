@@ -5,6 +5,8 @@ class AttributeCacheTest < IdentityCache::TestCase
 
   def setup
     super
+    @cache = IdentityCache.cache_backend
+
     AssociatedRecord.cache_attribute :name
     AssociatedRecord.cache_attribute :record, :by => [:id, :name]
 
@@ -15,12 +17,12 @@ class AttributeCacheTest < IdentityCache::TestCase
   end
 
   def test_attribute_values_are_returned_on_cache_hits
-    IdentityCache.cache.expects(:read).with(@name_attribute_key).returns('foo')
+    @cache.expects(:get).with(@name_attribute_key).returns(['foo', 0])
     assert_equal 'foo', AssociatedRecord.fetch_name_by_id(1)
   end
 
   def test_attribute_values_are_fetched_and_returned_on_cache_misses
-    IdentityCache.cache.expects(:read).with(@name_attribute_key).returns(nil)
+    @cache.expects(:get).with(@name_attribute_key).returns(nil)
     Record.connection.expects(:select_value).with("SELECT `name` FROM `associated_records` WHERE `id` = 1 LIMIT 1").returns('foo')
     assert_equal 'foo', AssociatedRecord.fetch_name_by_id(1)
   end
@@ -28,13 +30,13 @@ class AttributeCacheTest < IdentityCache::TestCase
   def test_attribute_values_are_stored_in_the_cache_on_cache_misses
 
     # Cache miss, so
-    IdentityCache.cache.expects(:read).with(@name_attribute_key).returns(nil)
+    @cache.expects(:get).with(@name_attribute_key).returns(nil)
 
     # Grab the value of the attribute from the DB
     Record.connection.expects(:select_value).with("SELECT `name` FROM `associated_records` WHERE `id` = 1 LIMIT 1").returns('foo')
 
     # And write it back to the cache
-    IdentityCache.cache.expects(:write).with(@name_attribute_key, 'foo').returns(nil)
+    @cache.expects(:add).with(@name_attribute_key, 'foo').returns(nil)
 
     assert_equal 'foo', AssociatedRecord.fetch_name_by_id(1)
   end
@@ -64,7 +66,7 @@ class AttributeCacheTest < IdentityCache::TestCase
   end
 
   def test_fetching_by_attribute_delegates_to_block_if_transactions_are_open
-    IdentityCache.cache.expects(:read).with(@name_attribute_key).never
+    @cache.expects(:get).with(@name_attribute_key).never
 
     Record.connection.expects(:select_value).with("SELECT `name` FROM `associated_records` WHERE `id` = 1 LIMIT 1").returns('foo')
 
