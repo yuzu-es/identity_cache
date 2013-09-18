@@ -366,21 +366,21 @@ module IdentityCache
         "[IdentityCache] expiring=#{self.class.name} expiring_id=#{id} #{extra_keys}"
       end
 
-      IdentityCache.cache.delete(primary_cache_index_key)
+      CacheEntry.delete(primary_cache_index_key)
     end
 
     def expire_secondary_indexes # :nodoc:
       return unless self.class.primary_cache_index_enabled
       cache_indexes.try(:each) do |fields|
         if self.destroyed?
-          IdentityCache.cache.delete(secondary_cache_index_key_for_previous_values(fields))
+          CacheEntry.delete(secondary_cache_index_key_for_previous_values(fields))
         else
           new_cache_index_key = secondary_cache_index_key_for_current_values(fields)
-          IdentityCache.cache.delete(new_cache_index_key)
+          CacheEntry.delete(new_cache_index_key)
 
           if !was_new_record?
             old_cache_index_key = secondary_cache_index_key_for_previous_values(fields)
-            IdentityCache.cache.delete(old_cache_index_key) unless old_cache_index_key == new_cache_index_key
+            CacheEntry.delete(old_cache_index_key) unless old_cache_index_key == new_cache_index_key
           end
         end
       end
@@ -388,7 +388,7 @@ module IdentityCache
 
     def expire_attribute_indexes # :nodoc:
       cache_attributes.try(:each) do |(attribute, fields)|
-        IdentityCache.cache.delete(attribute_cache_key_for_attribute_and_previous_values(attribute, fields)) unless was_new_record?
+        CacheEntry.delete(attribute_cache_key_for_attribute_and_previous_values(attribute, fields)) unless was_new_record?
       end
     end
 

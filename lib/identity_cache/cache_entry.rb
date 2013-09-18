@@ -34,7 +34,7 @@ module IdentityCache
     end
 
     def self.delete(key)
-      backend.replace(key, DELETED, 1)
+      backend.set(key, DELETED, 10)
     end
 
     def self.backend

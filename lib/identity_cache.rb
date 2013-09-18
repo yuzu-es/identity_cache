@@ -26,7 +26,7 @@ module IdentityCache
   class << self
     include IdentityCache::CacheHash
 
-    attr_accessor :readonly
+    attr_accessor :readonly, :cache_backend
     attr_writer :logger
 
     def included(base) #:nodoc:
@@ -37,12 +37,6 @@ module IdentityCache
       base.send(:include, IdentityCache::CacheKeyGeneration)
       base.send(:include, IdentityCache::ConfigurationDSL)
       base.send(:include, IdentityCache::QueryAPI)
-    end
-
-    attr_accessor :cache_backend
-
-    def cache
-      @cache ||= MemoizedCacheProxy.new
     end
 
     def logger

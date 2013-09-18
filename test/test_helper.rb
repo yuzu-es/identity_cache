@@ -1,5 +1,6 @@
 require 'minitest/autorun'
 require 'mocha/setup'
+require 'active_support/all'
 require 'active_record'
 require 'helpers/cache'
 require 'helpers/database_connection'
@@ -42,7 +43,8 @@ class IdentityCache::TestCase < MiniTest::Unit::TestCase
   end
 
   def teardown
-    IdentityCache.cache.clear
+    IdentityCache.cache_backend.clear
+#    IdentityCache.cache.clear
     teardown_models
   end
 

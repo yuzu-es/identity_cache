@@ -82,7 +82,7 @@ class NormalizedHasManyTest < IdentityCache::TestCase
   end
 
   def test_saving_a_child_record_shouldnt_expire_the_parents_blob_if_the_foreign_key_hasnt_changed
-    IdentityCache.cache.expects(:delete).with(@record.primary_cache_index_key).never
+    IdentityCache::CacheEntry.expects(:delete).with(@record.primary_cache_index_key).never
     @baz.name = 'foo'
     @baz.save!
     assert_equal [@baz.id, @bar.id], Record.fetch(@record.id).cached_associated_record_ids
@@ -90,17 +90,17 @@ class NormalizedHasManyTest < IdentityCache::TestCase
   end
 
   def test_creating_a_child_record_should_expire_the_parents_cache_blob
-    IdentityCache.cache.expects(:delete).with(@record.primary_cache_index_key).once
+    IdentityCache::CacheEntry.expects(:delete).with(@record.primary_cache_index_key).once
     @qux = @record.associated_records.create!(:name => 'qux')
     assert_equal [@qux, @baz, @bar], Record.fetch(@record.id).fetch_associated_records
   end
-  
+
   def test_saving_a_child_record_should_expire_the_new_and_old_parents_cache_blob
     @new_record = Record.create
     @baz.record_id = @new_record.id
 
-    IdentityCache.cache.expects(:delete).with(@record.primary_cache_index_key).once
-    IdentityCache.cache.expects(:delete).with(@new_record.primary_cache_index_key).once
+    IdentityCache::CacheEntry.expects(:delete).with(@record.primary_cache_index_key).once
+    IdentityCache::CacheEntry.expects(:delete).with(@new_record.primary_cache_index_key).once
 
     @baz.save!
 
@@ -113,8 +113,8 @@ class NormalizedHasManyTest < IdentityCache::TestCase
     @baz.record_id = @new_record.id
 
     @baz.transaction do
-      IdentityCache.cache.expects(:delete).with(@record.primary_cache_index_key).once
-      IdentityCache.cache.expects(:delete).with(@new_record.primary_cache_index_key).once
+      IdentityCache::CacheEntry.expects(:delete).with(@record.primary_cache_index_key).once
+      IdentityCache::CacheEntry.expects(:delete).with(@new_record.primary_cache_index_key).once
 
       @baz.save!
       @baz.reload
@@ -125,24 +125,23 @@ class NormalizedHasManyTest < IdentityCache::TestCase
   end
 
   def test_destroying_a_child_record_should_expire_the_parents_cache_blob
-    IdentityCache.cache.expects(:delete).with(@record.primary_cache_index_key).once
+    IdentityCache::CacheEntry.expects(:delete).with(@record.primary_cache_index_key).once
     @baz.destroy
     assert_equal [@bar], @record.reload.fetch_associated_records
   end
 
   def test_touching_a_child_record_should_expire_only_itself
-    IdentityCache.cache.expects(:delete).with(@baz.primary_cache_index_key).once
+    IdentityCache::CacheEntry.expects(:delete).with(@baz.primary_cache_index_key).once
     @baz.touch
   end
 
   def test_touching_child_with_touch_true_on_parent_expires_parent
-    IdentityCache.cache.expects(:delete).with(@record.primary_cache_index_key).once
+    IdentityCache::CacheEntry.expects(:delete).with(@record.primary_cache_index_key).once
     @not_cached.touch
   end
 
   def test_saving_child_with_touch_true_on_parent_expires_parent
-    IdentityCache.cache.expects(:delete).with(@record.primary_cache_index_key).once
+    IdentityCache::CacheEntry.expects(:delete).with(@record.primary_cache_index_key).once
     @not_cached.save
   end
-
 end
