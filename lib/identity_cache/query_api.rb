@@ -178,8 +178,9 @@ module IdentityCache
       end
 
       def resolve_cache_miss(id)
-        object = self.includes(cache_fetch_includes).where(id: id).try(:first)
-        object.try(:populate_association_caches)
+        result = self.includes(cache_fetch_includes).where(id: id).to_a
+        object = result.empty? ? nil : result.first
+        object.populate_association_caches unless object.nil?
         object
       end
 
