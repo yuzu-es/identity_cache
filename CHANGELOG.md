@@ -3,6 +3,7 @@
 #### 0.2.6 (unreleased)
 
 - Raise if a class method is called on a scope.  Previously the scope was ignored.
+- Fix cache_belongs_to on polymorphic assocations.
 
 #### 0.2.5
 
